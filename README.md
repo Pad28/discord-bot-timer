@@ -16,7 +16,6 @@ Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
 
 ```env
 DISCORD_TOKEN=tu_token_del_bot_aqui
-NOTIFY_CHANNEL_NAME=nombre-del-canal-de-notificaciones
 COMMAND_PREFIX=!
 ```
 
