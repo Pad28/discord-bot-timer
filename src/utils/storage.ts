@@ -31,9 +31,15 @@ export const loadData = (): TimeTrackingData => {
 export const saveData = (data: TimeTrackingData) => {
     ensureDataDir();
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+        const jsonData = JSON.stringify(data, null, 2);
+        fs.writeFileSync(DATA_FILE, jsonData, 'utf8');
+        console.log(`💾 Archivo guardado exitosamente: ${DATA_FILE} (${jsonData.length} bytes)`);
     } catch (error) {
-        console.error('Error saving time tracking data:', error);
+        console.error('❌ Error saving time tracking data:', error);
+        if (error instanceof Error) {
+            console.error('   Mensaje:', error.message);
+            console.error('   Stack:', error.stack);
+        }
     }
 };
 
