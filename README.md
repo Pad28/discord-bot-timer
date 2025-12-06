@@ -17,7 +17,13 @@ Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
 ```env
 DISCORD_TOKEN=tu_token_del_bot_aqui
 COMMAND_PREFIX=!
+NODE_ENV=development
 ```
+
+**Variables de entorno:**
+- `DISCORD_TOKEN`: Token del bot de Discord (requerido)
+- `COMMAND_PREFIX`: Prefijo para los comandos (por defecto: `!`)
+- `NODE_ENV`: Entorno de ejecución (`development` o `production`, opcional)
 
 **Obtener el token del bot:**
 1. Ve a [Discord Developer Portal](https://discord.com/developers/applications)
@@ -124,6 +130,30 @@ o usando ID:
 - La configuración del bot se guarda en `data/bot_config.json`
 - Los archivos se crean automáticamente si no existen
 
+### Sistema de Logging
+
+El bot utiliza **Winston** para el registro de logs. Los logs se guardan en archivos y se muestran en consola según su nivel de importancia.
+
+**Archivos de logs (directorio `logs/`):**
+- `combined.log`: Todos los logs (incluyendo debug)
+- `error.log`: Solo errores
+- `sessions.log`: Logs específicos de inicio y fin de sesión
+
+**Logs en consola:**
+- En desarrollo: Muestra `info`, `warn` y `error` (no muestra `debug`)
+- En producción: Solo muestra `warn` y `error`
+
+**Niveles de log:**
+- `debug`: Información detallada de depuración (solo en archivos)
+- `info`: Eventos importantes como inicio/fin de sesión (consola + archivos)
+- `warn`: Advertencias (consola + archivos)
+- `error`: Errores (consola + archivos)
+
+**Rotación automática:**
+- Los archivos de log tienen un tamaño máximo de 5MB
+- Se mantienen hasta 5 archivos por tipo de log
+- Los archivos antiguos se renombran automáticamente
+
 ### Estructura de Datos
 
 Cada sesión guarda:
@@ -166,11 +196,19 @@ Cada sesión guarda:
 - Verifica que los canales estén configurados con `!setchannels`
 - Asegúrate de que el bot tenga permisos para ver los canales de voz
 - Verifica que el bot esté en línea y funcionando
+- Revisa los logs en `logs/combined.log` o `logs/sessions.log` para ver eventos detallados
+- Los logs de debug muestran información detallada sobre cada evento `voiceStateUpdate`
 
 ### Error de permisos
 - Solo administradores del servidor pueden configurar roles
 - Solo usuarios con roles de administrador configurados (o administradores del servidor) pueden usar comandos
 - Si no hay roles configurados, solo administradores del servidor pueden usar comandos
+
+### Revisar logs para depuración
+- **Logs de sesiones:** `logs/sessions.log` - Muestra inicio y fin de sesiones
+- **Logs completos:** `logs/combined.log` - Todos los eventos incluyendo debug
+- **Errores:** `logs/error.log` - Solo errores y excepciones
+- **En consola:** Solo se muestran logs importantes (info, warn, error)
 
 ## 📝 Notas
 
@@ -178,6 +216,8 @@ Cada sesión guarda:
 - Las sesiones se guardan localmente en archivos JSON
 - El bot debe estar en línea para trackear tiempo
 - Si el bot se reinicia, las sesiones activas se perderán (pero las guardadas se mantienen)
+- Los logs se guardan automáticamente en el directorio `logs/` (no se suben a git)
+- Para ver logs detallados de depuración, revisa los archivos en `logs/combined.log`
 
 ## 🔒 Permisos Requeridos
 
