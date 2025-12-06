@@ -121,15 +121,27 @@ export const handleSetChannels = async (message: Message, args: string[], config
         message.reply(warningMsg);
     }
 
-    // Actualizar solo los canales del servidor actual
-    serverConfig.trackedChannels = channelIds;
+    // Combinar canales existentes con los nuevos (evitando duplicados)
+    const existingChannels = serverConfig.trackedChannels || [];
+    const combinedChannels = [...new Set([...existingChannels, ...channelIds])];
+
+    // Actualizar los canales del servidor actual
+    serverConfig.trackedChannels = combinedChannels;
 
     // Guardar la configuración completa (con todos los servidores)
     saveConfig(fullConfig);
 
+    const newChannelsCount = channelIds.length;
+    const totalChannelsCount = combinedChannels.length;
+    const wasAdded = existingChannels.length > 0 && newChannelsCount > 0;
+
     const embed = new EmbedBuilder()
         .setTitle('✅ Canales Configurados')
-        .setDescription(`Se configuraron ${channelIds.length} canal(es) para trackear:\n${channelIds.map(id => `<#${id}>`).join('\n')}`)
+        .setDescription(
+            wasAdded
+                ? `Se agregaron ${newChannelsCount} canal(es) nuevo(s). Total: ${totalChannelsCount} canal(es) trackeados:\n${combinedChannels.map(id => `<#${id}>`).join('\n')}`
+                : `Se configuraron ${totalChannelsCount} canal(es) para trackear:\n${combinedChannels.map(id => `<#${id}>`).join('\n')}`
+        )
         .setColor(0x57F287);
     message.reply({ embeds: [embed] });
 };
