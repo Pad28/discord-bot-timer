@@ -8,6 +8,7 @@ import {
 import { loadData, saveData, loadConfig, saveConfig } from './utils/storage';
 import { ActiveSession, WorkSession, BotConfig } from './types/data';
 import { envs } from './config/env';
+import logger from './utils/logger';
 import {
     handleSetChannels,
     handleSetAdminRoles,
@@ -37,18 +38,17 @@ botConfig = loadConfig();
 
 
 client.once('ready', async () => {
-    console.log('✅ Bot conectado exitosamente!');
-    console.log(`📊 Usuario: ${client.user?.tag}`);
-    console.log(`🎯 Prefijo de comandos: ${envs.COMMAND_PREFIX}`);
-    console.log(`🔧 Servidores: ${client.guilds.cache.size}`);
-    console.log(`📡 Event listeners registrados: voiceStateUpdate=${client.listenerCount('voiceStateUpdate')}`);
-    console.log('🔍 Verificando que el listener de voiceStateUpdate esté activo...');
+    logger.info('✅ Bot conectado exitosamente!');
+    logger.info(`📊 Usuario: ${client.user?.tag}`);
+    logger.info(`🎯 Prefijo de comandos: ${envs.COMMAND_PREFIX}`);
+    logger.info(`🔧 Servidores: ${client.guilds.cache.size}`);
+    logger.info(`📡 Event listeners registrados: voiceStateUpdate=${client.listenerCount('voiceStateUpdate')}`);
 
     // Mostrar configuración cargada
     const config = loadConfig();
-    console.log(`📋 Configuración cargada: ${Object.keys(config).length} servidor(es)`);
+    logger.info(`📋 Configuración cargada: ${Object.keys(config).length} servidor(es)`);
     Object.entries(config).forEach(([guildId, serverConfig]) => {
-        console.log(`  - Servidor ${guildId}: ${serverConfig.trackedChannels.length} canal(es) configurado(s)`);
+        logger.debug(`  - Servidor ${guildId}: ${serverConfig.trackedChannels.length} canal(es) configurado(s)`);
     });
 });
 
@@ -70,7 +70,7 @@ client.on('messageCreate', async (message: Message) => {
             case 'setchannels':
                 await handleSetChannels(message, args, botConfig);
                 botConfig = loadConfig(); // Recargar configuración después de guardar
-                console.log('🔄 Configuración recargada después de setchannels');
+                logger.debug('🔄 Configuración recargada después de setchannels');
                 break;
             case 'listchannels':
             case 'listcanales':
@@ -79,7 +79,7 @@ client.on('messageCreate', async (message: Message) => {
             case 'setadminroles':
                 await handleSetAdminRoles(message, args, botConfig);
                 botConfig = loadConfig(); // Recargar configuración después de guardar
-                console.log('🔄 Configuración recargada después de setadminroles');
+                logger.debug('🔄 Configuración recargada después de setadminroles');
                 break;
             case 'time':
             case 'tiempo':
@@ -101,36 +101,37 @@ client.on('messageCreate', async (message: Message) => {
                 message.reply(`❌ Comando desconocido. Usa \`${prefix}help\` para ver los comandos disponibles.`);
         }
     } catch (error) {
-        console.error('Error ejecutando comando:', error);
+        logger.error('Error ejecutando comando:', error);
         message.reply('❌ Ocurrió un error al ejecutar el comando.');
     }
 });
 
 // Handler para trackear tiempo en canales de voz
 client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState) => {
-    console.log('🔔 Evento voiceStateUpdate disparado');
-    console.log(`   Usuario: ${newState.member?.user?.username || 'desconocido'}`);
-    console.log(`   Canal anterior: ${oldState.channelId || 'ninguno'}`);
-    console.log(`   Canal nuevo: ${newState.channelId || 'ninguno'}`);
+    logger.debug('🔔 Evento voiceStateUpdate disparado', {
+        usuario: newState.member?.user?.username || 'desconocido',
+        canalAnterior: oldState.channelId || 'ninguno',
+        canalNuevo: newState.channelId || 'ninguno'
+    });
 
     const guildId = newState.guild.id;
     const userId = newState.member?.id;
 
-    console.log(`   Guild ID: ${guildId}`);
-    console.log(`   User ID: ${userId || 'no disponible'}`);
+    logger.debug(`   Guild ID: ${guildId}, User ID: ${userId || 'no disponible'}`);
 
     if (!userId || !newState.member) {
-        console.log('⚠️ Saltando: userId o member no disponible');
+        logger.debug('⚠️ Saltando: userId o member no disponible');
         return;
     }
 
     const serverConfig = getServerConfig(guildId, botConfig);
-    console.log(`   Canales trackeados configurados: ${serverConfig.trackedChannels.length}`);
-    console.log(`   IDs de canales trackeados: ${JSON.stringify(serverConfig.trackedChannels)}`);
+    logger.debug(`   Canales trackeados configurados: ${serverConfig.trackedChannels.length}`, {
+        canales: serverConfig.trackedChannels
+    });
 
     // Si no hay canales configurados, no hacer nada
     if (serverConfig.trackedChannels.length === 0) {
-        console.log('⚠️ Saltando: No hay canales configurados para trackear');
+        logger.debug('⚠️ Saltando: No hay canales configurados para trackear');
         return;
     }
 
@@ -138,16 +139,17 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
     const newChannelId = newState.channelId;
     const sessionKey = `${guildId}-${userId}`;
 
-    console.log(`   Evaluando: oldChannelId=${oldChannelId}, newChannelId=${newChannelId}`);
-    console.log(`   ¿Es canal trackeado (nuevo)? ${newChannelId ? serverConfig.trackedChannels.includes(newChannelId) : false}`);
-    console.log(`   ¿Es canal trackeado (anterior)? ${oldChannelId ? serverConfig.trackedChannels.includes(oldChannelId) : false}`);
+    logger.debug(`   Evaluando: oldChannelId=${oldChannelId}, newChannelId=${newChannelId}`, {
+        esCanalTrackeadoNuevo: newChannelId ? serverConfig.trackedChannels.includes(newChannelId) : false,
+        esCanalTrackeadoAnterior: oldChannelId ? serverConfig.trackedChannels.includes(oldChannelId) : false
+    });
 
     // Usuario entró a un canal trackeado
     if (!oldChannelId && newChannelId && serverConfig.trackedChannels.includes(newChannelId)) {
-        console.log('✅ Condición cumplida: Usuario entró a canal trackeado');
+        logger.debug('✅ Condición cumplida: Usuario entró a canal trackeado');
         const channel = await newState.guild.channels.fetch(newChannelId);
         if (!channel || !channel.isVoiceBased()) {
-            console.log(`⚠️ Canal ${newChannelId} no es de voz o no se pudo obtener`);
+            logger.warn(`⚠️ Canal ${newChannelId} no es de voz o no se pudo obtener`);
             return;
         }
 
@@ -158,18 +160,24 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
             username: newState.member.user.username
         });
 
-        console.log(`▶️ Inició sesión: ${newState.member.user.username} en ${channel.name} (${newChannelId})`);
-        console.log(`📅 Hora de inicio: ${sessionStart.toISOString()}`);
-        console.log(`🔑 SessionKey: ${sessionKey}`);
-        console.log(`📊 Total sesiones activas: ${activeSessions.size}`);
+        logger.info(`▶️ Inició sesión: ${newState.member.user.username} en ${channel.name} (${newChannelId})`, {
+            username: newState.member.user.username,
+            channelId: newChannelId,
+            channelName: channel.name,
+            sessionKey,
+            horaInicio: sessionStart.toISOString(),
+            sesionesActivas: activeSessions.size
+        });
     }
 
     // Usuario salió de un canal trackeado
     if (oldChannelId && serverConfig.trackedChannels.includes(oldChannelId) && !newChannelId) {
-        console.log('✅ Condición cumplida: Usuario salió de canal trackeado');
-        console.log(`🔍 Usuario salió del canal trackeado: ${oldChannelId}, sessionKey: ${sessionKey}`);
+        logger.debug('✅ Condición cumplida: Usuario salió de canal trackeado', {
+            canalId: oldChannelId,
+            sessionKey
+        });
         const session = activeSessions.get(sessionKey);
-        console.log(`📦 Sesión encontrada: ${!!session}, Sesiones activas: ${activeSessions.size}`);
+        logger.debug(`📦 Sesión encontrada: ${!!session}, Sesiones activas: ${activeSessions.size}`);
 
         if (session) {
             const endTime = new Date();
@@ -177,20 +185,20 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
             const durationHours = durationMs / (1000 * 60 * 60);
             const durationMinutes = durationHours * 60;
 
-            console.log(`⏱️ Duración calculada: ${durationHours.toFixed(4)} horas (${durationMinutes.toFixed(2)} minutos)`);
+            logger.debug(`⏱️ Duración calculada: ${durationHours.toFixed(4)} horas (${durationMinutes.toFixed(2)} minutos)`);
 
             // Solo guardar si la sesión duró al menos 1 minuto
             if (durationHours >= 1 / 60) {
-                console.log(`💾 Guardando sesión...`);
+                logger.debug(`💾 Guardando sesión...`);
                 const timeData = loadData();
-                console.log(`📂 Datos cargados: ${Object.keys(timeData).length} usuario(s)`);
+                logger.debug(`📂 Datos cargados: ${Object.keys(timeData).length} usuario(s)`);
 
                 if (!timeData[userId]) {
                     timeData[userId] = {
                         username: session.username,
                         sessions: []
                     };
-                    console.log(`➕ Nuevo usuario creado: ${userId}`);
+                    logger.debug(`➕ Nuevo usuario creado: ${userId}`);
                 }
 
                 const dateStr = session.start.toISOString().split('T')[0]; // yyyy-mm-dd
@@ -203,22 +211,28 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
                     channel: session.channel
                 };
 
-                console.log(`📝 Sesión a guardar: ${JSON.stringify(workSession)}`);
+                logger.debug(`📝 Sesión a guardar: ${JSON.stringify(workSession)}`);
                 timeData[userId].sessions.push(workSession);
                 timeData[userId].username = session.username; // Actualizar username por si cambió
 
                 saveData(timeData);
-                console.log(`✅ Datos guardados. Total sesiones para ${session.username}: ${timeData[userId].sessions.length}`);
+                logger.debug(`✅ Datos guardados. Total sesiones para ${session.username}: ${timeData[userId].sessions.length}`);
 
-                console.log(`⏹️ Finalizó sesión: ${session.username} - ${durationHours.toFixed(2)} horas (${durationMinutes.toFixed(1)} minutos)`);
+                logger.info(`⏹️ Finalizó sesión: ${session.username} - ${durationHours.toFixed(2)} horas (${durationMinutes.toFixed(1)} minutos)`, {
+                    username: session.username,
+                    durationHours: durationHours.toFixed(2),
+                    durationMinutes: durationMinutes.toFixed(1),
+                    channelId: session.channel,
+                    totalSesiones: timeData[userId].sessions.length
+                });
             } else {
-                console.log(`⚠️ Sesión muy corta para ${session.username}: ${durationMinutes.toFixed(1)} minutos (mínimo 1 minuto)`);
+                logger.debug(`⚠️ Sesión muy corta para ${session.username}: ${durationMinutes.toFixed(1)} minutos (mínimo 1 minuto)`);
             }
 
             activeSessions.delete(sessionKey);
-            console.log(`🗑️ Sesión eliminada de activeSessions. Restantes: ${activeSessions.size}`);
+            logger.debug(`🗑️ Sesión eliminada de activeSessions. Restantes: ${activeSessions.size}`);
         } else {
-            console.log(`❌ No se encontró sesión activa para ${sessionKey}. Sesiones activas:`, Array.from(activeSessions.keys()));
+            logger.warn(`❌ No se encontró sesión activa para ${sessionKey}. Sesiones activas: ${Array.from(activeSessions.keys()).join(', ')}`);
         }
     }
 
@@ -229,7 +243,7 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
 
         // Si salió de un canal trackeado, finalizar sesión
         if (wasOldTracked) {
-            console.log(`🔄 Usuario cambió de canal trackeado: ${oldChannelId} -> ${newChannelId}`);
+            logger.debug(`🔄 Usuario cambió de canal trackeado: ${oldChannelId} -> ${newChannelId}`);
             const session = activeSessions.get(sessionKey);
             if (session) {
                 const endTime = new Date();
@@ -237,10 +251,10 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
                 const durationHours = durationMs / (1000 * 60 * 60);
                 const durationMinutes = durationHours * 60;
 
-                console.log(`⏱️ Duración (cambio): ${durationHours.toFixed(4)} horas (${durationMinutes.toFixed(2)} minutos)`);
+                logger.debug(`⏱️ Duración (cambio): ${durationHours.toFixed(4)} horas (${durationMinutes.toFixed(2)} minutos)`);
 
                 if (durationHours >= 1 / 60) {
-                    console.log(`💾 Guardando sesión (cambio de canal)...`);
+                    logger.debug(`💾 Guardando sesión (cambio de canal)...`);
                     const timeData = loadData();
 
                     if (!timeData[userId]) {
@@ -264,15 +278,20 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
                     timeData[userId].username = session.username;
                     saveData(timeData);
 
-                    console.log(`✅ Sesión guardada (cambio). Total: ${timeData[userId].sessions.length}`);
-                    console.log(`⏹️ Finalizó sesión (cambio de canal): ${session.username} - ${durationHours.toFixed(2)} horas`);
+                    logger.debug(`✅ Sesión guardada (cambio). Total: ${timeData[userId].sessions.length}`);
+                    logger.info(`⏹️ Finalizó sesión (cambio de canal): ${session.username} - ${durationHours.toFixed(2)} horas`, {
+                        username: session.username,
+                        durationHours: durationHours.toFixed(2),
+                        channelId: session.channel,
+                        totalSesiones: timeData[userId].sessions.length
+                    });
                 } else {
-                    console.log(`⚠️ Sesión muy corta (cambio de canal) para ${session.username}: ${durationMinutes.toFixed(1)} minutos`);
+                    logger.debug(`⚠️ Sesión muy corta (cambio de canal) para ${session.username}: ${durationMinutes.toFixed(1)} minutos`);
                 }
 
                 activeSessions.delete(sessionKey);
             } else {
-                console.log(`❌ No se encontró sesión activa para cambio de canal: ${sessionKey}`);
+                logger.warn(`❌ No se encontró sesión activa para cambio de canal: ${sessionKey}`);
             }
         }
 
@@ -286,7 +305,12 @@ client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState)
                     username: newState.member.user.username
                 });
 
-                console.log(`▶️ Inició sesión (cambio de canal): ${newState.member.user.username} en ${channel.name}`);
+                logger.info(`▶️ Inició sesión (cambio de canal): ${newState.member.user.username} en ${channel.name}`, {
+                    username: newState.member.user.username,
+                    channelId: newChannelId,
+                    channelName: channel.name,
+                    sessionKey
+                });
             }
         }
     }

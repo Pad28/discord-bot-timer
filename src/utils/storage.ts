@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { TimeTrackingData, BotConfig } from '../types/data';
+import logger from './logger';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'time_data.json');
@@ -20,7 +21,7 @@ export const loadData = (): TimeTrackingData => {
             const data = fs.readFileSync(DATA_FILE, 'utf8');
             return JSON.parse(data);
         } catch (error) {
-            console.error('Error loading time tracking data:', error);
+            logger.error('Error loading time tracking data:', error);
             return {};
         }
     }
@@ -33,12 +34,12 @@ export const saveData = (data: TimeTrackingData) => {
     try {
         const jsonData = JSON.stringify(data, null, 2);
         fs.writeFileSync(DATA_FILE, jsonData, 'utf8');
-        console.log(`💾 Archivo guardado exitosamente: ${DATA_FILE} (${jsonData.length} bytes)`);
+        logger.debug(`💾 Archivo guardado exitosamente: ${DATA_FILE} (${jsonData.length} bytes)`);
     } catch (error) {
-        console.error('❌ Error saving time tracking data:', error);
+        logger.error('❌ Error saving time tracking data:', error);
         if (error instanceof Error) {
-            console.error('   Mensaje:', error.message);
-            console.error('   Stack:', error.stack);
+            logger.error('   Mensaje:', error.message);
+            logger.error('   Stack:', error.stack);
         }
     }
 };
@@ -62,7 +63,7 @@ export const loadConfig = (): BotConfig => {
             const data = fs.readFileSync(CONFIG_FILE, 'utf8');
             return JSON.parse(data);
         } catch (error) {
-            console.error('Error loading bot config:', error);
+            logger.error('Error loading bot config:', error);
             return {};
         }
     }
@@ -74,6 +75,6 @@ export const saveConfig = (config: BotConfig) => {
     try {
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
     } catch (error) {
-        console.error('Error saving bot config:', error);
+        logger.error('Error saving bot config:', error);
     }
 };
