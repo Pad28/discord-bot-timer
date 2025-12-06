@@ -44,7 +44,9 @@ export const handleSetChannels = async (message: Message, args: string[], config
         return;
     }
 
-    const serverConfig = getServerConfig(guildId, config);
+    // Cargar la configuración completa del archivo antes de modificar
+    const fullConfig = loadConfig();
+    const serverConfig = getServerConfig(guildId, fullConfig);
     const member = message.member ? await message.member.fetch() : null;
 
     if (!hasAdminPermission(member, serverConfig)) {
@@ -84,7 +86,10 @@ export const handleSetChannels = async (message: Message, args: string[], config
             try {
                 const channel = await message.guild?.channels.fetch(channelId);
                 if (channel && channel.isVoiceBased()) {
-                    channelIds.push(channelId);
+                    // Evitar duplicados
+                    if (!channelIds.includes(channelId)) {
+                        channelIds.push(channelId);
+                    }
                 } else if (channel) {
                     invalidChannels.push(`<#${channelId}> (no es un canal de voz)`);
                 } else {
@@ -116,8 +121,11 @@ export const handleSetChannels = async (message: Message, args: string[], config
         message.reply(warningMsg);
     }
 
+    // Actualizar solo los canales del servidor actual
     serverConfig.trackedChannels = channelIds;
-    saveConfig(config);
+
+    // Guardar la configuración completa (con todos los servidores)
+    saveConfig(fullConfig);
 
     const embed = new EmbedBuilder()
         .setTitle('✅ Canales Configurados')
@@ -134,7 +142,9 @@ export const handleSetAdminRoles = async (message: Message, args: string[], conf
         return;
     }
 
-    const serverConfig = getServerConfig(guildId, config);
+    // Cargar la configuración completa del archivo antes de modificar
+    const fullConfig = loadConfig();
+    const serverConfig = getServerConfig(guildId, fullConfig);
     const member = await message.member?.fetch();
 
     // Solo el administrador del servidor puede configurar roles
@@ -160,12 +170,16 @@ export const handleSetAdminRoles = async (message: Message, args: string[], conf
         // Si es una mención de rol
         const mentionMatch = arg.match(/^<@&(\d+)>$/);
         if (mentionMatch) {
-            roleIds.push(mentionMatch[1]);
+            const roleId = mentionMatch[1];
+            // Evitar duplicados
+            if (!roleIds.includes(roleId)) {
+                roleIds.push(roleId);
+            }
         }
         // Si es un ID directo
         else if (/^\d+$/.test(arg)) {
             const role = await message.guild?.roles.fetch(arg);
-            if (role) {
+            if (role && !roleIds.includes(arg)) {
                 roleIds.push(arg);
             }
         }
@@ -176,8 +190,11 @@ export const handleSetAdminRoles = async (message: Message, args: string[], conf
         return;
     }
 
+    // Actualizar solo los roles del servidor actual
     serverConfig.adminRoleIds = roleIds;
-    saveConfig(config);
+
+    // Guardar la configuración completa (con todos los servidores)
+    saveConfig(fullConfig);
 
     const embed = new EmbedBuilder()
         .setTitle('✅ Roles Configurados')
